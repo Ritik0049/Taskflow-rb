@@ -1,3 +1,4 @@
+import { emailQueue } from "../../queue/emailQueue";
 import { prisma } from "../../lib/prisma";
 import { NotFound, Forbidden, Conflict } from "../../lib/error";
 import { AuthContext } from "../../middleware/auth";
@@ -93,10 +94,11 @@ export async function deleteTask(auth: AuthContext, id: string) {
 }
 
 export async function assignTask(auth: AuthContext, taskId: string, userId: string) {
-  await getTask(auth, taskId);
+  const task = await getTask(auth, taskId);
 
   const membership = await prisma.orgMember.findFirst({
     where: { userId, orgId: auth.orgId },
+    include: { user: { select: { id: true, email: true, name: true } } },
   });
   if (!membership) throw Forbidden("Assignee does not belong to your organization");
 
@@ -105,7 +107,28 @@ export async function assignTask(auth: AuthContext, taskId: string, userId: stri
   });
   if (existing) throw Conflict("ALREADY_ASSIGNED", "User is already assigned to this task");
 
-  return prisma.taskAssignment.create({ data: { taskId, userId } });
+  const assignment = await prisma.taskAssignment.create({ data: { taskId, userId } });
+
+  try {
+    const job = await emailQueue.add(
+      "assignment-notification",
+      {
+        taskId: task.id,
+        taskTitle: task.title,
+        assigneeId: userId,
+        assigneeEmail: membership.user.email,
+        assigneeName: membership.user.name,
+        assignedByUserId: auth.userId,
+      },
+      {
+        jobId: `assign-${taskId}-${userId}-${Math.floor(Date.now() / 5000)}`,
+      }
+    );
+    return { ...assignment, jobId: job.id };
+  } catch (err) {
+    await prisma.taskAssignment.delete({ where: { id: assignment.id } });
+    throw err;
+  }
 }
 
 export async function unassignTask(auth: AuthContext, taskId: string, userId: string) {
