@@ -4,3 +4,4 @@ dist/
 *.log
 /generated/prisma
 .env.test
+coverage/
