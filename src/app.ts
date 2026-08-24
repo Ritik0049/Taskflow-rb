@@ -1,3 +1,5 @@
+import swaggerUi from "swagger-ui-express";
+import { openApiSpec } from "./docs/openapi";
 import express from "express";
 import authRoutes from "./modules/auth/auth.routes";
 import { errorHandler } from "./middleware/errorHandler";
@@ -13,6 +15,8 @@ export function createApp() {
   app.set("trust proxy", 1);
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
+
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
   app.use("/auth", authRoutes);
   app.use("/projects", projectRoutes);
