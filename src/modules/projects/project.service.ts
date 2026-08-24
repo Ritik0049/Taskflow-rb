@@ -23,11 +23,13 @@ export async function getProject(auth: AuthContext, id: string) {
     where: { id, orgId: auth.orgId, deletedAt: null },
   });
   
-  if (!project) {
-    const existsElsewhere = await prisma.project.findUnique({ where: { id } });
-    if (existsElsewhere) throw Forbidden("Access to this resource is not permitted");
-    throw NotFound("Project", "PROJECT_NOT_FOUND");
-  }
+    if (!project) {
+        const existsElsewhere = await prisma.project.findFirst({
+        where: { id, deletedAt: null },
+        });
+        if (existsElsewhere) throw Forbidden("Access to this resource is not permitted");
+        throw NotFound("Project", "PROJECT_NOT_FOUND");
+    }
   return project;
 }
 

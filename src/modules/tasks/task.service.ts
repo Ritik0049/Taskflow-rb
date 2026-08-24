@@ -11,11 +11,13 @@ export async function getTask(auth: AuthContext, id: string) {
     where: { id, deletedAt: null, project: { orgId: auth.orgId, deletedAt: null } },
     include: { assignments: { include: { user: { select: { id: true, name: true, email: true } } } } },
   });
-  if (!task) {
-    const existsElsewhere = await prisma.task.findUnique({ where: { id } });
-    if (existsElsewhere) throw Forbidden("Access to this resource is not permitted");
-    throw NotFound("Task", "TASK_NOT_FOUND");
-  }
+    if (!task) {
+        const existsElsewhere = await prisma.task.findFirst({
+        where: { id, deletedAt: null },
+        });
+        if (existsElsewhere) throw Forbidden("Access to this resource is not permitted");
+        throw NotFound("Task", "TASK_NOT_FOUND");
+    }
   return task;
 }
 
